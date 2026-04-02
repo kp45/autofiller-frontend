@@ -1,0 +1,53 @@
+<?php
+session_start();
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: http://localhost:8001');
+header('Access-Control-Allow-Credentials: true');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+require __DIR__ . '/../db.php';
+
+if (empty($_SESSION['admin_id'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Admin not logged in']);
+    exit;
+}
+
+$data        = json_decode(file_get_contents('php://input'), true);
+$userEmail   = trim($data['email']        ?? '');
+$newPassword = trim($data['new_password'] ?? '');
+
+if (!$userEmail || !$newPassword) {
+    http_response_code(400);
+    echo json_encode(['error' => 'User email and new password are required.']);
+    exit;
+}
+
+if (strlen($newPassword) < 6) {
+    http_response_code(400);
+    echo json_encode(['error' => 'New password must be at least 6 characters long.']);
+    exit;
+}
+
+$hash = password_hash($newPassword, PASSWORD_BCRYPT);
+
+$stmt = $pdo->prepare('UPDATE users SET password = ? WHERE email = ?');
+$stmt->execute([$hash, $userEmail]);
+
+if ($stmt->rowCount() === 0) {
+    http_response_code(404);
+    echo json_encode(['error' => 'User not found with that email.']);
+    exit;
+}
+
+echo json_encode([
+    'success' => true,
+    'message' => 'Password updated successfully for user.',
+]);
+

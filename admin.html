@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DocScan Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    body {
+      margin:0;
+      font-family:'Plus Jakarta Sans',sans-serif;
+      background:#f8f9fa;
+      color:#202124;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+    }
+    .admin-card{
+      background:#fff;
+      border-radius:20px;
+      padding:32px 28px;
+      max-width:480px;
+      width:90%;
+      box-shadow:0 10px 40px rgba(0,0,0,.12);
+    }
+    .admin-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:12px;
+    }
+    .admin-title h1{
+      font-size:20px;
+      font-weight:700;
+      margin:0;
+    }
+    .admin-title span{
+      font-size:12px;
+      color:#5f6368;
+      text-transform:uppercase;
+      letter-spacing:.8px;
+      font-weight:600;
+    }
+    .section-label{
+      font-size:13px;
+      font-weight:600;
+      color:#5f6368;
+      text-transform:uppercase;
+      letter-spacing:.7px;
+      margin:24px 0 10px;
+    }
+    .input-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+    .input-label{font-size:13px;font-weight:600;color:#5f6368;}
+    .input{
+      height:44px;padding:0 14px;border-radius:10px;
+      border:1.5px solid #dadce0;font-family:inherit;font-size:14px;
+      outline:none;background:#fff;transition:border-color .15s;
+    }
+    .input:focus{border-color:#1a73e8;}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      padding:0 22px;height:40px;border-radius:999px;
+      border:none;background:#1a73e8;color:#fff;font-size:14px;
+      font-weight:600;cursor:pointer;transition:background .15s,box-shadow .15s;
+      font-family:inherit;
+    }
+    .btn:hover{background:#1765cc;box-shadow:0 2px 8px rgba(26,115,232,.35);}
+    .btn:disabled{background:#dadce0;color:#9aa0a6;cursor:not-allowed;box-shadow:none;}
+    .subtext{font-size:12px;color:#5f6368;margin-top:6px;}
+    .error{background:#fce8e6;border:1px solid #fad2cf;color:#d93025;
+      font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:10px;display:none;}
+    .error.show{display:block;}
+    .success{background:#e6f4ea;border:1px solid #a8d5b5;color:#1e7e34;
+      font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:10px;display:none;}
+    .success.show{display:block;}
+    hr{border:none;border-top:1px solid #dadce0;margin:20px 0;}
+  </style>
+</head>
+<body>
+  <div class="admin-card">
+    <div class="admin-title">
+      <h1>DocScan Admin</h1>
+      <span>Forgot Password</span>
+    </div>
+    <p style="font-size:13px;color:#5f6368;margin-bottom:8px;">
+      Sign in as admin to reset a user password by email.
+    </p>
+
+    <div id="adminLoginSection">
+      <div class="section-label">Admin Login</div>
+      <div id="adminLoginError" class="error"></div>
+      <div class="input-group">
+        <label class="input-label">Admin email</label>
+        <input class="input" type="email" id="adminEmail" placeholder="admin@example.com"/>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Admin password</label>
+        <input class="input" type="password" id="adminPassword" placeholder="Admin password"/>
+      </div>
+      <button class="btn" id="adminLoginBtn" onclick="adminLogin()">Sign in as admin</button>
+    </div>
+
+    <div id="resetSection" style="display:none;">
+      <div class="section-label">Reset User Password</div>
+      <div id="resetError" class="error"></div>
+      <div id="resetSuccess" class="success"></div>
+      <div class="input-group">
+        <label class="input-label">User email</label>
+        <input class="input" type="email" id="resetEmail" placeholder="user@example.com"/>
+      </div>
+      <div class="input-group">
+        <label class="input-label">New password</label>
+        <input class="input" type="password" id="resetPassword" placeholder="New password for user"/>
+      </div>
+      <button class="btn" id="resetBtn" onclick="resetPassword()">Set new password</button>
+      <div class="subtext">
+        This will immediately replace the user's password. Share the new password securely with them.
+      </div>
+      <hr/>
+      <div class="subtext">
+        In future, this admin panel will also show user stats, purchased credits and more controls.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = './api';
+
+    async function adminLogin() {
+      const email = document.getElementById('adminEmail').value.trim();
+      const pass  = document.getElementById('adminPassword').value;
+      const errEl = document.getElementById('adminLoginError');
+      const btn   = document.getElementById('adminLoginBtn');
+
+      errEl.classList.remove('show');
+      if (!email || !pass) {
+        errEl.textContent = 'Please enter admin email and password.';
+        errEl.classList.add('show');
+        return;
+      }
+
+      btn.textContent = 'Signing in…';
+      btn.disabled = true;
+
+      try {
+        const res  = await fetch(`${API_BASE}/admin_login.php`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: pass })
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          errEl.textContent = data.error || 'Admin login failed.';
+          errEl.classList.add('show');
+          btn.textContent = 'Sign in as admin';
+          btn.disabled = false;
+          return;
+        }
+
+        document.getElementById('adminLoginSection').style.display = 'none';
+        document.getElementById('resetSection').style.display = 'block';
+      } catch (e) {
+        errEl.textContent = 'Could not connect to server. Is PHP running?';
+        errEl.classList.add('show');
+      }
+
+      btn.textContent = 'Sign in as admin';
+      btn.disabled = false;
+    }
+
+    async function resetPassword() {
+      const email = document.getElementById('resetEmail').value.trim();
+      const pass  = document.getElementById('resetPassword').value;
+      const errEl = document.getElementById('resetError');
+      const okEl  = document.getElementById('resetSuccess');
+      const btn   = document.getElementById('resetBtn');
+
+      errEl.classList.remove('show');
+      okEl.classList.remove('show');
+
+      if (!email || !pass) {
+        errEl.textContent = 'Please enter user email and new password.';
+        errEl.classList.add('show');
+        return;
+      }
+
+      btn.textContent = 'Updating…';
+      btn.disabled = true;
+
+      try {
+        const res  = await fetch(`${API_BASE}/admin_reset_password.php`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, new_password: pass })
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          errEl.textContent = data.error || 'Password reset failed.';
+          errEl.classList.add('show');
+          btn.textContent = 'Set new password';
+          btn.disabled = false;
+          return;
+        }
+
+        okEl.textContent = data.message || 'Password updated successfully.';
+        okEl.classList.add('show');
+        document.getElementById('resetPassword').value = '';
+      } catch (e) {
+        errEl.textContent = 'Could not connect to server.';
+        errEl.classList.add('show');
+      }
+
+      btn.textContent = 'Set new password';
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>
+
