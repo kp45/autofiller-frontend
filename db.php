@@ -1,9 +1,8 @@
 <?php
-$host = 'srv1750.hstgr.io';      // use TCP to avoid socket issues
+$host = 'localhost';      // use TCP to avoid socket issues
 $db   = 'u730879231_autofiller_db';
 $user = 'u730879231_idea_2';        // dedicated MySQL user created by setup.sql
-$pass = 'Mysql@1369724680';
-$port = 3306;
+$pass = 'Mysql@1369724680'; 
 
 
 
