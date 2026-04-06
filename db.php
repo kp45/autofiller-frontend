@@ -1,6 +1,6 @@
 <?php
 
-$hostingerConfig = '/home/u730879231/config.php';
+$hostingerConfig = '/home/u730879231/domains/gatijobs.in/config.php';
 $localConfig = __DIR__ . '/config.php';
 
 if (is_file($hostingerConfig)) {

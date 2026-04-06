@@ -127,6 +127,22 @@
   <script>
     const API_BASE = './api';
 
+    async function readApiJson(res) {
+      const text = await res.text();
+      if (!text) {
+        return {
+          error: `Request failed (${res.status}). Empty response from server.`,
+        };
+      }
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return {
+          error: `Request failed (${res.status}). Server returned invalid JSON.`,
+        };
+      }
+    }
+
     async function adminLogin() {
       const email = document.getElementById('adminEmail').value.trim();
       const pass  = document.getElementById('adminPassword').value;
@@ -150,7 +166,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password: pass })
         });
-        const data = await res.json();
+        const data = await readApiJson(res);
 
         if (!res.ok || data.error) {
           errEl.textContent = data.error || 'Admin login failed.';
@@ -197,7 +213,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, new_password: pass })
         });
-        const data = await res.json();
+        const data = await readApiJson(res);
 
         if (!res.ok || data.error) {
           errEl.textContent = data.error || 'Password reset failed.';
@@ -221,4 +237,3 @@
   </script>
 </body>
 </html>
-

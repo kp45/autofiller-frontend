@@ -35,19 +35,26 @@ if (strlen($newPassword) < 6) {
     exit;
 }
 
-$hash = password_hash($newPassword, PASSWORD_BCRYPT);
+try {
+    $hash = password_hash($newPassword, PASSWORD_BCRYPT);
 
-$stmt = $pdo->prepare('UPDATE users SET password = ? WHERE email = ?');
-$stmt->execute([$hash, $userEmail]);
+    $stmt = $pdo->prepare('UPDATE users SET password = ? WHERE email = ?');
+    $stmt->execute([$hash, $userEmail]);
 
-if ($stmt->rowCount() === 0) {
-    http_response_code(404);
-    echo json_encode(['error' => 'User not found with that email.']);
-    exit;
+    if ($stmt->rowCount() === 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'User not found with that email.']);
+        exit;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Password updated successfully for user.',
+    ]);
+} catch (PDOException $e) {
+    error_log('admin_reset_password.php database error: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'Admin reset backend error. Verify users table and DB permissions.',
+    ]);
 }
-
-echo json_encode([
-    'success' => true,
-    'message' => 'Password updated successfully for user.',
-]);
-
