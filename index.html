@@ -726,6 +726,26 @@ const DEFAULT_PRICING = {
 };
 let pricing = { ...DEFAULT_PRICING };
 
+async function readApiJson(res, context) {
+  const raw = await res.text();
+
+  if (!raw) {
+    console.error(`[${context}] Empty response body`, { status: res.status });
+    return { error: `Server returned empty response (${res.status}).` };
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error(`[${context}] Invalid JSON response`, {
+      status: res.status,
+      body: raw,
+      error: err.message
+    });
+    return { error: `Server returned invalid response (${res.status}). Check PHP logs.` };
+  }
+}
+
 // ══════════════════════════════════════════
 //  INIT — check session on load
 // ══════════════════════════════════════════
@@ -845,8 +865,8 @@ async function doLogin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, remember })
     });
-    const data = await res.json();
-    applyPricing(data.pricing);
+    const data = await readApiJson(res, 'login.php');
+    if (data?.pricing) applyPricing(data.pricing);
 
     if (!res.ok || data.error) {
       showLoginError(data.error || 'Login failed. Please try again.');
@@ -861,7 +881,8 @@ async function doLogin() {
     showToast('Welcome back, ' + currentUser.name + '!', 'success');
 
   } catch(e) {
-    showLoginError('Could not connect to server. Is PHP running?');
+    console.error('[login.php] Request failed before response', e);
+    showLoginError(`Could not connect to server: ${e.message}`);
     btn.textContent = 'Sign in';
     btn.disabled = false;
   }
@@ -901,8 +922,8 @@ async function doRegister() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    const data = await res.json();
-    applyPricing(data.pricing);
+    const data = await readApiJson(res, 'register.php');
+    if (data?.pricing) applyPricing(data.pricing);
 
     if (!res.ok || data.error) {
       // If user already exists, guide them to login
@@ -929,7 +950,8 @@ async function doRegister() {
     document.getElementById('loginPassword').value = '';
     goLogin();
   } catch (e) {
-    errorEl.textContent = 'Could not connect to server. Is PHP running?';
+    console.error('[register.php] Request failed before response', e);
+    errorEl.textContent = `Could not connect to server: ${e.message}`;
     errorEl.classList.add('show');
   }
 
