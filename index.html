@@ -601,7 +601,7 @@ html, body { height: 100%; font-family: 'Plus Jakarta Sans', sans-serif; backgro
           <input class="input" type="number" id="creditAmount" placeholder="Enter amount" min="10" oninput="updateQR()"/>
           <div style="font-size:12px;color:var(--text-3);margin-top:6px" id="creditMinHint">Minimum top-up: ₹10.00</div>
         </div>
-        <div class="amount-presets">
+        <div class="amount-presets" style="display:none">
           <button class="amount-preset" onclick="setAmount(100, this)">₹100</button>
           <button class="amount-preset" onclick="setAmount(200, this)">₹200</button>
           <button class="amount-preset" onclick="setAmount(500, this)">₹500</button>
@@ -710,6 +710,7 @@ html, body { height: 100%; font-family: 'Plus Jakarta Sans', sans-serif; backgro
 //  CONFIG
 // ══════════════════════════════════════════
 const DEFAULT_FASTAPI_ENDPOINT = '';
+const DEFAULT_PAYMENT_QR_SRC = 'https://gatijobs.in/Autofiller/payment_qr_bob.jpeg';
 const API_BASE = '/api'; // PHP API folder
 
 // ══════════════════════════════════════════
@@ -1586,10 +1587,8 @@ function setAmount(val, btnEl) {
 }
 
 function updateQR() {
-  const amount = document.getElementById('creditAmount').value || '0';
-  const upiData = `upi://pay?pa=yourUPI@bank&pn=DocScan&am=${amount}&cu=INR`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiData)}`;
-  document.getElementById('qrCodeImg').src = qrUrl;
+  const qrImg = document.getElementById('qrCodeImg');
+  if (qrImg) qrImg.src = DEFAULT_PAYMENT_QR_SRC;
 }
 
 function handleProofFile(input) {
@@ -1763,6 +1762,7 @@ function generateDemoData() {
 //  BOOT
 // ══════════════════════════════════════════
 renderPricingUI();
+updateQR();
 initApp();
 </script>
 </body>
