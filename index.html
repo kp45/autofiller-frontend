@@ -752,8 +752,8 @@ async function readApiJson(res, context) {
 async function initApp() {
   try {
     const res  = await fetch(`${API_BASE}/me.php`, { credentials: 'include' });
-    const data = await res.json();
-    applyPricing(data.pricing);
+    const data = await readApiJson(res, 'me.php');
+    if (data?.pricing) applyPricing(data.pricing);
     if (data.user) {
       currentUser = data.user;
       applyUser();

@@ -1,23 +1,31 @@
 <?php
 
-$hostingerConfig = '/home/u730879231/domains/gatijobs.in/config.php';
-$localConfig = __DIR__ . '/config.php';
+$configPaths = [
+    '/home/u730879231/config.php',
+    '/home/u730879231/domains/gatijobs.in/config.php',
+    __DIR__ . '/config.php',
+];
 
-if (is_file($hostingerConfig)) {
-    require_once '/home/u730879231/config.php';
-} elseif (is_file($localConfig)) {
-    require_once $localConfig;
-} else {
+$loadedConfig = false;
+foreach ($configPaths as $configPath) {
+    if (is_readable($configPath)) {
+        include_once $configPath;
+        $loadedConfig = true;
+        break;
+    }
+}
+
+if (!$loadedConfig) {
     http_response_code(500);
     echo json_encode(['error' => 'Config file missing']);
     exit;
 }
 
-$dbHost = defined('DB_HOST') ? DB_HOST : (isset($DB_HOST) ? $DB_HOST : '');
-$dbName = defined('DB_NAME') ? DB_NAME : (isset($DB_NAME) ? $DB_NAME : '');
-$dbUser = defined('DB_USER') ? DB_USER : (isset($DB_USER) ? $DB_USER : '');
-$dbPass = defined('DB_PASS') ? DB_PASS : (isset($DB_PASS) ? $DB_PASS : '');
-$dbPort = defined('DB_PORT') ? DB_PORT : (isset($DB_PORT) ? $DB_PORT : '');
+$dbHost = defined('DB_HOST') ? DB_HOST : (isset($DB_HOST) ? $DB_HOST : (isset($host) ? $host : ''));
+$dbName = defined('DB_NAME') ? DB_NAME : (isset($DB_NAME) ? $DB_NAME : (isset($db) ? $db : ''));
+$dbUser = defined('DB_USER') ? DB_USER : (isset($DB_USER) ? $DB_USER : (isset($user) ? $user : ''));
+$dbPass = defined('DB_PASS') ? DB_PASS : (isset($DB_PASS) ? $DB_PASS : (isset($pass) ? $pass : ''));
+$dbPort = defined('DB_PORT') ? DB_PORT : (isset($DB_PORT) ? $DB_PORT : (isset($port) ? $port : ''));
 
 $pricePerImage = defined('PRICE_PER_IMAGE') ? PRICE_PER_IMAGE : (isset($PRICE_PER_IMAGE) ? $PRICE_PER_IMAGE : '');
 $startingBalance = defined('STARTING_BALANCE') ? STARTING_BALANCE : (isset($STARTING_BALANCE) ? $STARTING_BALANCE : '');
