@@ -6,234 +6,631 @@
   <title>DocScan Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
+    :root {
+      --blue: #1a73e8;
+      --blue-dark: #145ec2;
+      --blue-soft: #eef4ff;
+      --surface: #ffffff;
+      --text: #202124;
+      --muted: #5f6368;
+      --border: #d8deea;
+      --ok: #188038;
+      --warn: #d93025;
+      --shadow: 0 14px 34px rgba(26, 115, 232, 0.15);
+    }
+    * { box-sizing: border-box; }
     body {
-      margin:0;
-      font-family:'Plus Jakarta Sans',sans-serif;
-      background:#f8f9fa;
-      color:#202124;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      min-height:100vh;
+      margin: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 420px at 0% -10%, #e9f2ff 0%, #f5f8ff 52%, #f7f9ff 100%);
+      min-height: 100vh;
     }
-    .admin-card{
-      background:#fff;
-      border-radius:20px;
-      padding:32px 28px;
-      max-width:480px;
-      width:90%;
-      box-shadow:0 10px 40px rgba(0,0,0,.12);
+    .hidden { display: none !important; }
+    .container { width: min(1120px, 92vw); margin: 28px auto 40px; }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
     }
-    .admin-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:12px;
+    .auth-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
     }
-    .admin-title h1{
-      font-size:20px;
-      font-weight:700;
-      margin:0;
+    .auth-card {
+      width: min(440px, 95vw);
+      padding: 28px 24px;
     }
-    .admin-title span{
-      font-size:12px;
-      color:#5f6368;
-      text-transform:uppercase;
-      letter-spacing:.8px;
-      font-weight:600;
+    .brand {
+      margin-bottom: 18px;
     }
-    .section-label{
-      font-size:13px;
-      font-weight:600;
-      color:#5f6368;
-      text-transform:uppercase;
-      letter-spacing:.7px;
-      margin:24px 0 10px;
+    .brand h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: -.3px;
     }
-    .input-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
-    .input-label{font-size:13px;font-weight:600;color:#5f6368;}
-    .input{
-      height:44px;padding:0 14px;border-radius:10px;
-      border:1.5px solid #dadce0;font-family:inherit;font-size:14px;
-      outline:none;background:#fff;transition:border-color .15s;
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
     }
-    .input:focus{border-color:#1a73e8;}
-    .btn{
-      display:inline-flex;align-items:center;justify-content:center;
-      padding:0 22px;height:40px;border-radius:999px;
-      border:none;background:#1a73e8;color:#fff;font-size:14px;
-      font-weight:600;cursor:pointer;transition:background .15s,box-shadow .15s;
-      font-family:inherit;
+    .input-group { margin-bottom: 14px; }
+    .label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600;
     }
-    .btn:hover{background:#1765cc;box-shadow:0 2px 8px rgba(26,115,232,.35);}
-    .btn:disabled{background:#dadce0;color:#9aa0a6;cursor:not-allowed;box-shadow:none;}
-    .subtext{font-size:12px;color:#5f6368;margin-top:6px;}
-    .error{background:#fce8e6;border:1px solid #fad2cf;color:#d93025;
-      font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:10px;display:none;}
-    .error.show{display:block;}
-    .success{background:#e6f4ea;border:1px solid #a8d5b5;color:#1e7e34;
-      font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:10px;display:none;}
-    .success.show{display:block;}
-    hr{border:none;border-top:1px solid #dadce0;margin:20px 0;}
+    .input {
+      width: 100%;
+      height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 0 12px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      background: #fff;
+    }
+    .input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
+    }
+    .btn {
+      border: none;
+      border-radius: 999px;
+      height: 42px;
+      padding: 0 20px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+      box-shadow: 0 8px 20px rgba(26, 115, 232, 0.25);
+    }
+    .btn-primary:hover { background: var(--blue-dark); }
+    .btn-secondary {
+      background: #edf3ff;
+      color: var(--blue-dark);
+      border: 1px solid #c8dbff;
+    }
+    .btn-secondary:hover { background: #e3eeff; }
+    .btn:disabled {
+      background: #dbe4f2;
+      color: #8a95a8;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .alert {
+      display: none;
+      margin: 0 0 14px;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .alert.show { display: block; }
+    .alert.error {
+      background: #fce8e6;
+      color: var(--warn);
+      border: 1px solid #f6c9c3;
+    }
+    .alert.success {
+      background: #e6f4ea;
+      color: var(--ok);
+      border: 1px solid #b8e0c3;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -.4px;
+    }
+    .topbar p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 16px;
+    }
+    .card {
+      padding: 18px;
+    }
+    .card h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+    .card .sub {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .row .input { flex: 1; }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0 10px;
+    }
+    .stat {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #f9fbff;
+      padding: 10px 12px;
+    }
+    .stat .k {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .stat .v {
+      font-size: 20px;
+      font-weight: 700;
+      color: #123e7a;
+    }
+    .user-meta {
+      border: 1px dashed #bfd4ff;
+      background: #f3f8ff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #214c88;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      background: #1e3a5f;
+      color: #fff;
+      border-radius: 10px;
+      padding: 12px 14px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: all .2s ease;
+      max-width: min(420px, 90vw);
+      font-size: 13px;
+      z-index: 9999;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .toast.success { background: #176535; }
+    .toast.error { background: #a3271e; }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; align-items: flex-start; }
+    }
   </style>
 </head>
 <body>
-  <div class="admin-card">
-    <div class="admin-title">
-      <h1>DocScan Admin</h1>
-      <span>Forgot Password</span>
-    </div>
-    <p style="font-size:13px;color:#5f6368;margin-bottom:8px;">
-      Sign in as admin to reset a user password by email.
-    </p>
-
-    <div id="adminLoginSection">
-      <div class="section-label">Admin Login</div>
-      <div id="adminLoginError" class="error"></div>
+  <div id="loginView" class="auth-wrap">
+    <div class="panel auth-card">
+      <div class="brand">
+        <h1>DocScan Admin</h1>
+        <p>Login with admin credentials to manage global pricing and user balances.</p>
+      </div>
+      <div id="loginError" class="alert error"></div>
       <div class="input-group">
-        <label class="input-label">Admin email</label>
-        <input class="input" type="email" id="adminEmail" placeholder="admin@example.com"/>
+        <label class="label" for="adminEmail">Admin Email</label>
+        <input class="input" id="adminEmail" type="email" placeholder="admin@example.com"/>
       </div>
       <div class="input-group">
-        <label class="input-label">Admin password</label>
-        <input class="input" type="password" id="adminPassword" placeholder="Admin password"/>
+        <label class="label" for="adminPassword">Admin Password</label>
+        <input class="input" id="adminPassword" type="password" placeholder="Enter password"/>
       </div>
-      <button class="btn" id="adminLoginBtn" onclick="adminLogin()">Sign in as admin</button>
-    </div>
-
-    <div id="resetSection" style="display:none;">
-      <div class="section-label">Reset User Password</div>
-      <div id="resetError" class="error"></div>
-      <div id="resetSuccess" class="success"></div>
-      <div class="input-group">
-        <label class="input-label">User email</label>
-        <input class="input" type="email" id="resetEmail" placeholder="user@example.com"/>
-      </div>
-      <div class="input-group">
-        <label class="input-label">New password</label>
-        <input class="input" type="password" id="resetPassword" placeholder="New password for user"/>
-      </div>
-      <button class="btn" id="resetBtn" onclick="resetPassword()">Set new password</button>
-      <div class="subtext">
-        This will immediately replace the user's password. Share the new password securely with them.
-      </div>
-      <hr/>
-      <div class="subtext">
-        In future, this admin panel will also show user stats, purchased credits and more controls.
-      </div>
+      <button id="loginBtn" class="btn btn-primary" style="width:100%" onclick="adminLogin()">Sign in</button>
     </div>
   </div>
 
+  <div id="dashboardView" class="container hidden">
+    <div class="topbar">
+      <div>
+        <h1>Admin Control Panel</h1>
+        <p id="adminIdentity">Signed in</p>
+      </div>
+      <button class="btn btn-secondary" onclick="adminLogout()">Logout</button>
+    </div>
+
+    <div class="grid">
+      <section class="panel card">
+        <h2>Global Pricing Config</h2>
+        <p class="sub">These values are saved in <code>app_config</code> and applied globally to all users.</p>
+        <div id="configAlert" class="alert"></div>
+        <div class="input-group">
+          <label class="label" for="cfgPrice">PRICE_PER_IMAGE (₹)</label>
+          <input class="input" id="cfgPrice" type="number" min="0" step="0.01"/>
+        </div>
+        <div class="input-group">
+          <label class="label" for="cfgStarting">STARTING_BALANCE (₹)</label>
+          <input class="input" id="cfgStarting" type="number" min="0" step="0.01"/>
+        </div>
+        <div class="input-group">
+          <label class="label" for="cfgMinTopup">MIN_TOPUP_AMOUNT (₹)</label>
+          <input class="input" id="cfgMinTopup" type="number" min="1" step="0.01"/>
+        </div>
+        <button id="saveConfigBtn" class="btn btn-primary" onclick="saveGlobalConfig()">Save Global Config</button>
+      </section>
+
+      <section class="panel card">
+        <h2>User Lookup & Balance</h2>
+        <p class="sub">Search user by email, view usage and add credit to current balance.</p>
+
+        <div id="userAlert" class="alert"></div>
+        <div class="row">
+          <input class="input" id="userEmailSearch" type="email" placeholder="user@example.com"/>
+          <button id="userLookupBtn" class="btn btn-secondary" onclick="lookupUser()">Find</button>
+        </div>
+
+        <div id="userDataBlock" class="hidden">
+          <div id="userMeta" class="user-meta"></div>
+          <div class="stats">
+            <div class="stat">
+              <div class="k">Total Images Processed</div>
+              <div class="v" id="userTotalImages">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Remaining Balance</div>
+              <div class="v" id="userBalance">₹0.00</div>
+            </div>
+          </div>
+          <div class="stat" style="margin-bottom: 12px">
+            <div class="k">Total Spent</div>
+            <div class="v" id="userTotalSpent">₹0.00</div>
+          </div>
+
+          <div class="row">
+            <input class="input" id="balanceAddAmount" type="number" min="0.01" step="0.01" placeholder="Amount to add"/>
+            <button id="addBalanceBtn" class="btn btn-primary" onclick="addBalanceToUser()">Add</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
   <script>
-    const API_BASE = './api';
+    const API_BASE = '/api';
+    let currentAdmin = null;
+    let currentUserEmail = '';
+    let toastTimer = null;
+
+    function formatMoney(value) {
+      const num = Number.parseFloat(value);
+      const safe = Number.isFinite(num) ? num : 0;
+      return '₹' + safe.toFixed(2);
+    }
+
+    function setAlert(id, type, message) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = `alert ${type} show`;
+      el.textContent = message;
+    }
+
+    function clearAlert(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = 'alert';
+      el.textContent = '';
+    }
+
+    function showToast(message, type = '') {
+      const el = document.getElementById('toast');
+      el.className = `toast ${type} show`;
+      el.textContent = message;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        el.classList.remove('show');
+      }, 2600);
+    }
 
     async function readApiJson(res) {
       const text = await res.text();
       if (!text) {
-        return {
-          error: `Request failed (${res.status}). Empty response from server.`,
-        };
+        return { error: `Request failed (${res.status}): Empty response body` };
       }
       try {
         return JSON.parse(text);
-      } catch (e) {
-        return {
-          error: `Request failed (${res.status}). Server returned invalid JSON.`,
-        };
+      } catch (err) {
+        return { error: `Request failed (${res.status}): Invalid JSON response` };
+      }
+    }
+
+    function setLoggedInView(loggedIn) {
+      document.getElementById('loginView').classList.toggle('hidden', loggedIn);
+      document.getElementById('dashboardView').classList.toggle('hidden', !loggedIn);
+    }
+
+    function applyPricing(pricing) {
+      if (!pricing) return;
+      const price = Number.parseFloat(pricing.price_per_image);
+      const start = Number.parseFloat(pricing.starting_balance);
+      const min = Number.parseFloat(pricing.min_topup_amount);
+      if (Number.isFinite(price)) document.getElementById('cfgPrice').value = price.toFixed(2);
+      if (Number.isFinite(start)) document.getElementById('cfgStarting').value = start.toFixed(2);
+      if (Number.isFinite(min)) document.getElementById('cfgMinTopup').value = min.toFixed(2);
+    }
+
+    function applyAdmin(admin) {
+      currentAdmin = admin || null;
+      const identity = admin?.email ? `Signed in as ${admin.email}` : 'Signed in';
+      document.getElementById('adminIdentity').textContent = identity;
+    }
+
+    async function bootstrapAdmin() {
+      try {
+        const res = await fetch(`${API_BASE}/admin_get_config.php`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const data = await readApiJson(res);
+        if (!res.ok || data.error) {
+          setLoggedInView(false);
+          return;
+        }
+        applyAdmin(data.admin);
+        applyPricing(data.pricing);
+        setLoggedInView(true);
+      } catch (err) {
+        setLoggedInView(false);
       }
     }
 
     async function adminLogin() {
       const email = document.getElementById('adminEmail').value.trim();
-      const pass  = document.getElementById('adminPassword').value;
-      const errEl = document.getElementById('adminLoginError');
-      const btn   = document.getElementById('adminLoginBtn');
+      const password = document.getElementById('adminPassword').value;
+      const btn = document.getElementById('loginBtn');
 
-      errEl.classList.remove('show');
-      if (!email || !pass) {
-        errEl.textContent = 'Please enter admin email and password.';
-        errEl.classList.add('show');
+      clearAlert('loginError');
+      if (!email || !password) {
+        setAlert('loginError', 'error', 'Please enter admin email and password.');
         return;
       }
 
-      btn.textContent = 'Signing in…';
       btn.disabled = true;
+      btn.textContent = 'Signing in...';
 
       try {
-        const res  = await fetch(`${API_BASE}/admin_login.php`, {
+        const res = await fetch(`${API_BASE}/admin_login.php`, {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password: pass })
+          body: JSON.stringify({ email, password }),
         });
         const data = await readApiJson(res);
-
         if (!res.ok || data.error) {
-          errEl.textContent = data.error || 'Admin login failed.';
-          errEl.classList.add('show');
-          btn.textContent = 'Sign in as admin';
+          setAlert('loginError', 'error', data.error || 'Admin login failed.');
           btn.disabled = false;
+          btn.textContent = 'Sign in';
           return;
         }
 
-        document.getElementById('adminLoginSection').style.display = 'none';
-        document.getElementById('resetSection').style.display = 'block';
-      } catch (e) {
-        errEl.textContent = 'Could not connect to server. Is PHP running?';
-        errEl.classList.add('show');
+        applyAdmin(data.admin);
+        await loadGlobalConfig();
+        setLoggedInView(true);
+        showToast('Admin login successful.', 'success');
+        document.getElementById('adminPassword').value = '';
+      } catch (err) {
+        setAlert('loginError', 'error', 'Could not connect to server.');
       }
 
-      btn.textContent = 'Sign in as admin';
       btn.disabled = false;
+      btn.textContent = 'Sign in';
     }
 
-    async function resetPassword() {
-      const email = document.getElementById('resetEmail').value.trim();
-      const pass  = document.getElementById('resetPassword').value;
-      const errEl = document.getElementById('resetError');
-      const okEl  = document.getElementById('resetSuccess');
-      const btn   = document.getElementById('resetBtn');
+    async function loadGlobalConfig() {
+      const res = await fetch(`${API_BASE}/admin_get_config.php`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const data = await readApiJson(res);
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Could not fetch global config.');
+      }
+      applyAdmin(data.admin);
+      applyPricing(data.pricing);
+    }
 
-      errEl.classList.remove('show');
-      okEl.classList.remove('show');
+    async function saveGlobalConfig() {
+      const btn = document.getElementById('saveConfigBtn');
+      const price = document.getElementById('cfgPrice').value.trim();
+      const starting = document.getElementById('cfgStarting').value.trim();
+      const minTopup = document.getElementById('cfgMinTopup').value.trim();
 
-      if (!email || !pass) {
-        errEl.textContent = 'Please enter user email and new password.';
-        errEl.classList.add('show');
+      clearAlert('configAlert');
+      if (!price || !starting || !minTopup) {
+        setAlert('configAlert', 'error', 'Please fill all config values.');
         return;
       }
 
-      btn.textContent = 'Updating…';
       btn.disabled = true;
+      btn.textContent = 'Saving...';
 
       try {
-        const res  = await fetch(`${API_BASE}/admin_reset_password.php`, {
+        const res = await fetch(`${API_BASE}/admin_update_config.php`, {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, new_password: pass })
+          body: JSON.stringify({
+            price_per_image: price,
+            starting_balance: starting,
+            min_topup_amount: minTopup,
+          }),
         });
         const data = await readApiJson(res);
-
         if (!res.ok || data.error) {
-          errEl.textContent = data.error || 'Password reset failed.';
-          errEl.classList.add('show');
-          btn.textContent = 'Set new password';
+          setAlert('configAlert', 'error', data.error || 'Could not update config.');
           btn.disabled = false;
+          btn.textContent = 'Save Global Config';
           return;
         }
 
-        okEl.textContent = data.message || 'Password updated successfully.';
-        okEl.classList.add('show');
-        document.getElementById('resetPassword').value = '';
-      } catch (e) {
-        errEl.textContent = 'Could not connect to server.';
-        errEl.classList.add('show');
+        applyPricing(data.pricing);
+        setAlert('configAlert', 'success', 'Global config updated in app_config.');
+        showToast('Pricing config changed successfully.', 'success');
+      } catch (err) {
+        setAlert('configAlert', 'error', 'Could not connect to server.');
       }
 
-      btn.textContent = 'Set new password';
       btn.disabled = false;
+      btn.textContent = 'Save Global Config';
     }
+
+    function renderUser(user) {
+      currentUserEmail = user.email;
+      document.getElementById('userDataBlock').classList.remove('hidden');
+      document.getElementById('userMeta').innerHTML = `
+        <strong>${user.name || 'User'}</strong><br/>
+        ${user.email}<br/>
+        User ID: ${user.id} · Joined: ${user.created_at || '—'}
+      `;
+      document.getElementById('userTotalImages').textContent = String(user.total_images || 0);
+      document.getElementById('userBalance').textContent = formatMoney(user.balance || 0);
+      document.getElementById('userTotalSpent').textContent = formatMoney(user.total_spent || 0);
+    }
+
+    async function lookupUser() {
+      const btn = document.getElementById('userLookupBtn');
+      const email = document.getElementById('userEmailSearch').value.trim();
+      clearAlert('userAlert');
+
+      if (!email) {
+        setAlert('userAlert', 'error', 'Please enter a user email.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Finding...';
+
+      try {
+        const res = await fetch(`${API_BASE}/admin_user_lookup.php`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await readApiJson(res);
+        if (!res.ok || data.error) {
+          setAlert('userAlert', 'error', data.error || 'User lookup failed.');
+          document.getElementById('userDataBlock').classList.add('hidden');
+          currentUserEmail = '';
+          btn.disabled = false;
+          btn.textContent = 'Find';
+          return;
+        }
+
+        renderUser(data.user);
+        showToast('User loaded.', 'success');
+      } catch (err) {
+        setAlert('userAlert', 'error', 'Could not connect to server.');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Find';
+    }
+
+    async function addBalanceToUser() {
+      const btn = document.getElementById('addBalanceBtn');
+      const amountRaw = document.getElementById('balanceAddAmount').value.trim();
+      clearAlert('userAlert');
+
+      if (!currentUserEmail) {
+        setAlert('userAlert', 'error', 'Lookup user first.');
+        return;
+      }
+      if (!amountRaw) {
+        setAlert('userAlert', 'error', 'Enter amount to add.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+
+      try {
+        const res = await fetch(`${API_BASE}/admin_add_balance.php`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentUserEmail, amount: amountRaw }),
+        });
+        const data = await readApiJson(res);
+        if (!res.ok || data.error) {
+          setAlert('userAlert', 'error', data.error || 'Could not update balance.');
+          btn.disabled = false;
+          btn.textContent = 'Add';
+          return;
+        }
+
+        document.getElementById('balanceAddAmount').value = '';
+        setAlert('userAlert', 'success', `Balance updated: ${formatMoney(data.old_balance)} → ${formatMoney(data.new_balance)}`);
+        showToast('Balance changed successfully.', 'success');
+        await lookupUser();
+      } catch (err) {
+        setAlert('userAlert', 'error', 'Could not connect to server.');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Add';
+    }
+
+    async function adminLogout() {
+      try {
+        await fetch(`${API_BASE}/logout.php`, { method: 'POST', credentials: 'include' });
+      } catch (err) {}
+      currentAdmin = null;
+      currentUserEmail = '';
+      document.getElementById('userDataBlock').classList.add('hidden');
+      clearAlert('configAlert');
+      clearAlert('userAlert');
+      setLoggedInView(false);
+      showToast('Logged out.', 'success');
+    }
+
+    document.getElementById('adminEmail').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') adminLogin();
+    });
+    document.getElementById('adminPassword').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') adminLogin();
+    });
+    document.getElementById('userEmailSearch').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') lookupUser();
+    });
+    document.getElementById('balanceAddAmount').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addBalanceToUser();
+    });
+
+    bootstrapAdmin();
   </script>
 </body>
 </html>

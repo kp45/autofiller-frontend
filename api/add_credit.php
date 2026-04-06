@@ -39,7 +39,13 @@ if (!empty($_FILES['proof']['tmp_name'])) {
     $uploadDir = '../uploads/payment_proofs/';
     if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
-    $filename  = 'proof_' . $_SESSION['user_id'] . '_' . time() . '.' . $ext;
+    $filename  = sprintf(
+        'proof_%s_%s_%s.%s',
+        $_SESSION['user_id'],
+        date('Ymd_His'),
+        bin2hex(random_bytes(6)),
+        $ext
+    );
     $destPath  = $uploadDir . $filename;
 
     if (!move_uploaded_file($_FILES['proof']['tmp_name'], $destPath)) {

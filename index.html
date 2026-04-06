@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>DocScan</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -441,7 +442,7 @@ html, body { height: 100%; font-family: 'Plus Jakarta Sans', sans-serif; backgro
   <main class="upload-main">
     <div class="upload-hero">
       <h1>Extract text from documents</h1>
-      <p>Upload images or PDFs — we'll extract all text and data automatically</p>
+      <p>Upload images or PDFs — PDF pages are split automatically and processed like images</p>
     </div>
     <div class="drop-zone" id="dropZone">
       <input type="file" id="fileInput" multiple accept="image/*,.pdf"/>
@@ -708,23 +709,32 @@ html, body { height: 100%; font-family: 'Plus Jakarta Sans', sans-serif; backgro
 // ══════════════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════════════
-const FASTAPI_ENDPOINT = 'https://autofiller-backend-production.up.railway.app/upload'; // ← your FastAPI URL
-const API_BASE = './api'; // PHP API folder
+const DEFAULT_FASTAPI_ENDPOINT = '';
+const API_BASE = '/api'; // PHP API folder
 
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
 let currentUser = null;
+let sourceFiles = [];
 let uploadedFiles = [];
 let processedResults = {};
 let activeDocIndex = null;
 let lightboxIndex = null;
+let uploadDocsReady = true;
+let fastApiEndpoint = DEFAULT_FASTAPI_ENDPOINT;
 const DEFAULT_PRICING = {
   price_per_image: 2,
   starting_balance: 100,
   min_topup_amount: 10,
 };
 let pricing = { ...DEFAULT_PRICING };
+const pdfPageCountCache = new Map();
+
+if (window.pdfjsLib) {
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 async function readApiJson(res, context) {
   const raw = await res.text();
@@ -789,10 +799,14 @@ function applyPricing(nextPricing) {
     const nextPrice = parseFloat(nextPricing.price_per_image);
     const nextStart = parseFloat(nextPricing.starting_balance);
     const nextMinTopup = parseFloat(nextPricing.min_topup_amount);
+    const nextFastApiEndpoint = typeof nextPricing.fastapi_endpoint === 'string'
+      ? nextPricing.fastapi_endpoint.trim()
+      : '';
 
     if (Number.isFinite(nextPrice) && nextPrice >= 0) pricing.price_per_image = nextPrice;
     if (Number.isFinite(nextStart) && nextStart >= 0) pricing.starting_balance = nextStart;
     if (Number.isFinite(nextMinTopup) && nextMinTopup >= 1) pricing.min_topup_amount = nextMinTopup;
+    if (nextFastApiEndpoint) fastApiEndpoint = nextFastApiEndpoint;
   }
 
   renderPricingUI();
@@ -805,7 +819,7 @@ function renderPricingUI() {
   const minTopup = formatCurrency(pricing.min_topup_amount);
 
   const dropMeta = document.getElementById('dropMeta');
-  if (dropMeta) dropMeta.textContent = `Supports: JPG, PNG, PDF · ${perImage} per image`;
+  if (dropMeta) dropMeta.textContent = `Supports: JPG, PNG, PDF · ${perImage} per image/page`;
 
   const usagePriceSub = document.getElementById('usagePriceSub');
   if (usagePriceSub) usagePriceSub.textContent = `${perImage} per image processed`;
@@ -985,8 +999,10 @@ async function doLogout() {
     await fetch(`${API_BASE}/logout.php`, { method: 'POST', credentials: 'include' });
   } catch(e) {}
   currentUser = null;
+  sourceFiles = [];
   uploadedFiles = [];
   processedResults = {};
+  pdfPageCountCache.clear();
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPassword').value = '';
   document.getElementById('loginError').classList.remove('show');
@@ -1003,10 +1019,124 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover
 dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); addFiles([...e.dataTransfer.files]); });
 fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
 
-function addFiles(files) {
-  files.forEach(f => {
-    if (!uploadedFiles.find(x => x.name === f.name && x.size === f.size)) uploadedFiles.push(f);
+function getSourceFileKey(file) {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function isPdfFile(file) {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+function derivePdfPageName(filename, sourceIndex, pageNumber) {
+  const stem = filename.replace(/\.pdf$/i, '') || 'document';
+  return `${stem}_file_${sourceIndex + 1}_page_${pageNumber}.png`;
+}
+
+async function countPdfPages(file) {
+  const cacheKey = getSourceFileKey(file);
+  if (pdfPageCountCache.has(cacheKey)) {
+    return pdfPageCountCache.get(cacheKey);
+  }
+
+  if (!window.pdfjsLib) {
+    throw new Error('PDF.js failed to load in the browser.');
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
+  const pdf = await loadingTask.promise;
+  const pageCount = pdf.numPages;
+
+  if (typeof pdf.destroy === 'function') {
+    pdf.destroy();
+  }
+
+  pdfPageCountCache.set(cacheKey, pageCount);
+  return pageCount;
+}
+
+function createSourceImageDoc(file, sourceIndex) {
+  return {
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    sourceName: file.name,
+    sourceIndex,
+    pageNumber: null,
+    isPdfPage: false,
+    rawFile: file,
+  };
+}
+
+function createPdfPageDoc(file, sourceIndex, pageNumber, size = file.size) {
+  return {
+    name: derivePdfPageName(file.name, sourceIndex, pageNumber),
+    size,
+    type: 'image/png',
+    sourceName: file.name,
+    sourceIndex,
+    pageNumber,
+    isPdfPage: true,
+    rawFile: null,
+  };
+}
+
+function buildDisplayDocsFromServer(documents) {
+  return documents.map(doc => {
+    const sourceIndex = Number.isFinite(Number(doc.source_index)) ? Number(doc.source_index) : -1;
+    const sourceFile = sourceIndex >= 0 ? sourceFiles[sourceIndex] : sourceFiles.find(file => file.name === doc.source_name);
+    const canPreviewSource = sourceFile && sourceFile.type.startsWith('image/') && !doc.is_pdf_page;
+
+    return {
+      name: doc.display_name,
+      size: Number(doc.size_bytes || sourceFile?.size || 0),
+      type: doc.mime_type || sourceFile?.type || 'application/octet-stream',
+      sourceName: doc.source_name || sourceFile?.name || doc.display_name,
+      sourceIndex,
+      pageNumber: doc.page_number ?? null,
+      isPdfPage: Boolean(doc.is_pdf_page),
+      rawFile: canPreviewSource ? sourceFile : null,
+    };
   });
+}
+
+async function rebuildUploadedDocs() {
+  const nextDocs = [];
+
+  for (const [sourceIndex, file] of sourceFiles.entries()) {
+    if (isPdfFile(file)) {
+      try {
+        const pageCount = await countPdfPages(file);
+        for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+          nextDocs.push(createPdfPageDoc(file, sourceIndex, pageNumber));
+        }
+      } catch (error) {
+        console.warn(`Could not inspect PDF "${file.name}" locally:`, error.message);
+        showToast(`Could not count PDF pages for ${file.name}.`, 'warning');
+        nextDocs.push(createPdfPageDoc(file, sourceIndex, 1));
+      }
+      continue;
+    }
+
+    nextDocs.push(createSourceImageDoc(file, sourceIndex));
+  }
+
+  uploadedFiles = nextDocs;
+}
+
+async function addFiles(files) {
+  files.forEach(file => {
+    const alreadyAdded = sourceFiles.find(existing => getSourceFileKey(existing) === getSourceFileKey(file));
+    if (!alreadyAdded) {
+      sourceFiles.push(file);
+    }
+  });
+
+  uploadDocsReady = false;
+  renderFileList();
+
+  await rebuildUploadedDocs();
+  uploadDocsReady = true;
   renderFileList();
 }
 
@@ -1016,27 +1146,38 @@ function renderFileList() {
   const actions = document.getElementById('uploadActions');
   const label   = document.getElementById('fileCountLabel');
   const cost    = document.getElementById('costPreview');
+  const submitBtn = document.getElementById('submitBtn');
 
-  if (!uploadedFiles.length) {
+  if (!sourceFiles.length) {
     wrap.style.display = 'none'; actions.style.display = 'none'; return;
   }
   wrap.style.display = 'block'; actions.style.display = 'flex';
-  label.textContent = `${uploadedFiles.length} file${uploadedFiles.length > 1 ? 's' : ''} selected`;
+  label.textContent = `${sourceFiles.length} file${sourceFiles.length > 1 ? 's' : ''} selected`;
 
-  const totalCost = Number((uploadedFiles.length * pricing.price_per_image).toFixed(2));
+  const derivedCount = uploadDocsReady ? uploadedFiles.length : 0;
+  const totalCost = Number((derivedCount * pricing.price_per_image).toFixed(2));
   const bal = parseFloat(currentUser?.balance || 0);
-  cost.innerHTML = `Cost: <strong>${formatCurrency(totalCost)}</strong> · Balance: <strong style="color:${bal < totalCost ? 'var(--red)' : 'var(--green)'}">${formatCurrency(bal)}</strong>`;
+  const workLabel = uploadDocsReady
+    ? `${uploadedFiles.length} image/page item${uploadedFiles.length === 1 ? '' : 's'}`
+    : 'Calculating PDF pages...';
+  const costLabel = uploadDocsReady ? formatCurrency(totalCost) : '₹...';
+  cost.innerHTML = `To process: <strong>${workLabel}</strong> · Cost: <strong>${costLabel}</strong> · Balance: <strong style="color:${uploadDocsReady && bal < totalCost ? 'var(--red)' : 'var(--green)'}">${formatCurrency(bal)}</strong>`;
+  submitBtn.disabled = !uploadDocsReady || !uploadedFiles.length;
 
   cards.innerHTML = '';
-  uploadedFiles.forEach((file, i) => {
+  sourceFiles.forEach((file, i) => {
     const isImage = file.type.startsWith('image/');
+    const pageCount = isPdfFile(file) ? pdfPageCountCache.get(getSourceFileKey(file)) : null;
+    const metaText = isPdfFile(file)
+      ? `${formatSize(file.size)}${pageCount ? ` · ${pageCount} page${pageCount === 1 ? '' : 's'}` : ''}`
+      : formatSize(file.size);
     const card = document.createElement('div');
     card.className = 'file-card';
     card.innerHTML = `
       <div class="file-thumb" id="up-thumb-${i}">${isImage ? '' : fileSVG()}</div>
       <div class="file-info">
         <div class="file-name">${escHtml(file.name)}</div>
-        <div class="file-size">${formatSize(file.size)}</div>
+        <div class="file-size">${escHtml(metaText)}</div>
       </div>
       <button class="file-remove" onclick="removeFile(${i})">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
@@ -1050,13 +1191,36 @@ function renderFileList() {
   });
 }
 
-function removeFile(i) { uploadedFiles.splice(i, 1); renderFileList(); }
-function clearAll() { uploadedFiles = []; renderFileList(); }
+async function removeFile(i) {
+  const file = sourceFiles[i];
+  if (file) {
+    pdfPageCountCache.delete(getSourceFileKey(file));
+  }
+  sourceFiles.splice(i, 1);
+  uploadDocsReady = false;
+  renderFileList();
+  await rebuildUploadedDocs();
+  uploadDocsReady = true;
+  renderFileList();
+}
+
+function clearAll() {
+  sourceFiles = [];
+  uploadedFiles = [];
+  processedResults = {};
+  uploadDocsReady = true;
+  pdfPageCountCache.clear();
+  renderFileList();
+}
 
 // ══════════════════════════════════════════
 //  START PROCESSING
 // ══════════════════════════════════════════
 async function startProcessing() {
+  if (!uploadDocsReady) {
+    showToast('PDF pages are still being prepared. Please wait a moment.', 'warning');
+    return;
+  }
   if (!uploadedFiles.length) return;
 
   const cost = Number((uploadedFiles.length * pricing.price_per_image).toFixed(2));
@@ -1083,26 +1247,51 @@ async function startProcessing() {
 // ══════════════════════════════════════════
 async function callFastAPI() {
   const statusEl = document.getElementById('processingStatus');
+  const uploadEndpoint = fastApiEndpoint.trim();
   console.group('🚀 DocScan Processing');
-  console.log('📁 Files:', uploadedFiles.map(f => f.name));
+  console.log('📁 Source Files:', sourceFiles.map(f => f.name));
+
+  if (!uploadEndpoint) {
+    document.getElementById('processingOverlay').classList.add('hidden');
+    document.getElementById('sidebarSubtitle').textContent = 'Processing failed';
+    showToast('FastAPI endpoint is not configured.', 'error');
+    console.groupEnd();
+    return;
+  }
 
   const formData = new FormData();
-  uploadedFiles.forEach(f => formData.append('files', f));
+  sourceFiles.forEach(f => formData.append('files', f));
 
   let data;
   try {
-    statusEl.textContent = `Uploading ${uploadedFiles.length} file(s)…`;
-    console.log('📡 POST →', FASTAPI_ENDPOINT);
-    const resp = await fetch(FASTAPI_ENDPOINT, { method: 'POST', body: formData });
+    statusEl.textContent = `Uploading ${sourceFiles.length} file(s)…`;
+    console.log('📡 POST →', uploadEndpoint);
+    const resp = await fetch(uploadEndpoint, { method: 'POST', body: formData });
     console.log('📥 Status:', resp.status);
-    if (!resp.ok) throw new Error(`Server error ${resp.status}`);
     const raw = await resp.text();
     console.log('📄 Raw response:', raw);
+    if (!resp.ok) {
+      let message = `Server error ${resp.status}`;
+      try {
+        const parsed = raw ? JSON.parse(raw) : null;
+        message = parsed?.detail || parsed?.error || message;
+      } catch (_) {}
+      throw new Error(message);
+    }
     data = JSON.parse(raw);
     console.log('✅ Parsed JSON:', data);
   } catch(err) {
-    console.warn('⚠️ FastAPI failed, using demo data. Error:', err.message);
-    data = generateDemoData();
+    console.error('❌ FastAPI processing failed:', err);
+    document.getElementById('processingOverlay').classList.add('hidden');
+    document.getElementById('sidebarSubtitle').textContent = 'Processing failed';
+    showToast(`Processing failed: ${err.message}`, 'error');
+    console.groupEnd();
+    return;
+  }
+
+  if (Array.isArray(data.documents) && data.documents.length) {
+    uploadedFiles = buildDisplayDocsFromServer(data.documents);
+    buildSidebar();
   }
 
   // Map results using file_id_map + Image_Id
@@ -1113,7 +1302,7 @@ async function callFastAPI() {
       const imageId  = String(item.Image_Id);
       const filename = fileIdMap[imageId];
       if (!filename) { console.warn(`No filename for Image_Id ${imageId}`); return; }
-      const matched = uploadedFiles.find(f => f.name === filename);
+      const matched = uploadedFiles[Number(imageId)] || uploadedFiles.find(f => f.name === filename);
       if (!matched) { console.warn(`No uploaded file matches "${filename}"`); return; }
       console.log(`✅ ${imageId} → "${filename}"`, item);
       processedResults[matched.name] = item;
@@ -1126,7 +1315,8 @@ async function callFastAPI() {
   console.log('📦 processedResults:', processedResults);
 
   // Deduct credits
-  await deductCredits(uploadedFiles.length);
+  const billableCount = Number.isFinite(Number(data.valid_images)) ? Number(data.valid_images) : uploadedFiles.length;
+  await deductCredits(billableCount);
 
   uploadedFiles.forEach((f, i) => updateDocCard(i, processedResults[f.name] ? 'done' : 'waiting'));
   document.getElementById('processingOverlay').classList.add('hidden');
@@ -1167,10 +1357,10 @@ function buildSidebar() {
   const strip = document.getElementById('docStrip');
   const list  = document.getElementById('docList');
   strip.innerHTML = list.innerHTML = '';
-  document.getElementById('sidebarSubtitle').textContent = `${uploadedFiles.length} file(s)`;
+  document.getElementById('sidebarSubtitle').textContent = `${uploadedFiles.length} doc(s)`;
 
   uploadedFiles.forEach((file, i) => {
-    const isImage = file.type.startsWith('image/');
+    const isImage = !!file.rawFile && file.rawFile.type.startsWith('image/');
     // Strip
     const st = document.createElement('div');
     st.className = 'strip-thumb'; st.id = `strip-${i}`; st.title = file.name;
@@ -1202,7 +1392,7 @@ function buildSidebar() {
         if (si) si.src = e.target.result;
         if (ci) ci.src = e.target.result;
       };
-      r.readAsDataURL(file);
+      r.readAsDataURL(file.rawFile);
     }
     updateDocCard(i, 'loading');
   });
@@ -1223,6 +1413,7 @@ function updateDocCard(i, status) {
 function selectDoc(i) {
   activeDocIndex = i;
   const file = uploadedFiles[i];
+  if (!file) return;
   document.querySelectorAll('.doc-card').forEach(c => c.classList.remove('active'));
   document.querySelectorAll('.strip-thumb').forEach(c => c.classList.remove('active'));
   const card  = document.getElementById(`doc-card-${i}`);
@@ -1244,7 +1435,7 @@ function renderExtracted(data, container, fileIndex) {
   console.group(`🎨 renderExtracted [${fileIndex}]`);
   console.log('Data:', data);
   const file    = uploadedFiles[fileIndex];
-  const isImage = file.type.startsWith('image/');
+  const isImage = !!file?.rawFile && file.rawFile.type.startsWith('image/');
 
   // Image preview
   let imageSection = '';
@@ -1547,8 +1738,20 @@ function skeletonHTML() {
 }
 function generateDemoData() {
   return {
-    total_images: uploadedFiles.length, batches_processed: 1, success_count: uploadedFiles.length,
+    total_images: uploadedFiles.length, total_documents: uploadedFiles.length, batches_processed: 1, success_count: uploadedFiles.length,
+    valid_images: uploadedFiles.length,
     file_id_map: Object.fromEntries(uploadedFiles.map((f,i)=>[String(i),f.name])),
+    documents: uploadedFiles.map((f, i) => ({
+      image_id: String(i),
+      display_name: f.name,
+      source_name: f.sourceName || f.name,
+      source_index: f.sourceIndex ?? -1,
+      mime_type: f.type,
+      size_bytes: f.size,
+      is_pdf_page: !!f.isPdfPage,
+      page_number: f.pageNumber,
+      source_type: f.isPdfPage ? 'application/pdf' : f.type,
+    })),
     data: uploadedFiles.map((f,i) => ({
       Image_Id: String(i), 'Doc Type': 'Demo Document',
       Name: 'Sample Name', Info: 'Demo mode — FastAPI not reachable'
