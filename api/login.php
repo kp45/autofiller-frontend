@@ -54,5 +54,6 @@ echo json_encode([
         'name'    => $user['name'],
         'email'   => $user['email'],
         'balance' => (float)$user['balance'],
-    ]
+    ],
+    'pricing' => $appConfig,
 ]);

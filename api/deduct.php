@@ -24,7 +24,8 @@ if ($images <= 0) {
     exit;
 }
 
-$cost = $images * 2; // ₹2 per image
+$pricePerImage = (float)($appConfig['price_per_image'] ?? 2);
+$cost = round($images * $pricePerImage, 2);
 
 // Fetch current balance
 $stmt = $pdo->prepare('SELECT balance FROM users WHERE id = ?');
@@ -64,4 +65,5 @@ echo json_encode([
     'success'     => true,
     'deducted'    => $cost,
     'new_balance' => (float)$updated['balance'],
+    'pricing'     => $appConfig,
 ]);

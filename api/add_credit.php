@@ -15,10 +15,11 @@ if (empty($_SESSION['user_id'])) {
 }
 
 $amount = (float)($_POST['amount'] ?? 0);
+$minTopupAmount = (float)($appConfig['min_topup_amount'] ?? 10);
 
-if ($amount < 10) {
+if ($amount < $minTopupAmount) {
     http_response_code(400);
-    echo json_encode(['error' => 'Minimum amount is ₹10']);
+    echo json_encode(['error' => 'Minimum amount is ₹' . number_format($minTopupAmount, 2, '.', '')]);
     exit;
 }
 
@@ -67,4 +68,5 @@ $pdo->prepare('INSERT INTO transactions (user_id, amount, type, description, sta
 echo json_encode([
     'success' => true,
     'message' => 'Payment request submitted. Your balance will be credited within 2 minutes.',
+    'pricing' => $appConfig,
 ]);

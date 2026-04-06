@@ -448,7 +448,7 @@ html, body { height: 100%; font-family: 'Plus Jakarta Sans', sans-serif; backgro
       <div class="drop-icon"><svg viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg></div>
       <h3>Drag & drop files here</h3>
       <p>or <span>browse from your computer</span></p>
-      <div class="drop-meta">Supports: JPG, PNG, PDF · ₹2 per image</div>
+      <div class="drop-meta" id="dropMeta">Supports: JPG, PNG, PDF · ₹2.00 per image</div>
     </div>
     <div class="file-list-wrap" id="fileListWrap" style="display:none">
       <div class="file-list-header">
@@ -562,7 +562,7 @@ html, body { height: 100%; font-family: 'Plus Jakarta Sans', sans-serif; backgro
       <div class="usage-balance-card">
         <div class="usage-balance-label">Available Balance</div>
         <div class="usage-balance-amount" id="profileBalance">₹—</div>
-        <div class="usage-balance-sub">₹2 per image processed</div>
+        <div class="usage-balance-sub" id="usagePriceSub">₹2.00 per image processed</div>
       </div>
       <div class="usage-stats">
         <div class="usage-stat-card">
@@ -580,11 +580,11 @@ html, body { height: 100%; font-family: 'Plus Jakarta Sans', sans-serif; backgro
         <div style="font-size:14px;font-weight:600;margin-bottom:16px;color:var(--text)">Pricing</div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
           <span style="font-size:14px;color:var(--text-2)">Per image processed</span>
-          <span style="font-size:14px;font-weight:700;color:var(--text)">₹2.00</span>
+          <span style="font-size:14px;font-weight:700;color:var(--text)" id="pricingPerImageValue">₹2.00</span>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0">
           <span style="font-size:14px;color:var(--text-2)">Starting balance</span>
-          <span style="font-size:14px;font-weight:700;color:var(--text)">₹100.00</span>
+          <span style="font-size:14px;font-weight:700;color:var(--text)" id="pricingStartingBalanceValue">₹100.00</span>
         </div>
       </div>
     </div>
@@ -598,12 +598,13 @@ html, body { height: 100%; font-family: 'Plus Jakarta Sans', sans-serif; backgro
         <div class="input-group">
           <label class="input-label">Amount (₹)</label>
           <input class="input" type="number" id="creditAmount" placeholder="Enter amount" min="10" oninput="updateQR()"/>
+          <div style="font-size:12px;color:var(--text-3);margin-top:6px" id="creditMinHint">Minimum top-up: ₹10.00</div>
         </div>
         <div class="amount-presets">
-          <button class="amount-preset" onclick="setAmount(100)">₹100</button>
-          <button class="amount-preset" onclick="setAmount(200)">₹200</button>
-          <button class="amount-preset" onclick="setAmount(500)">₹500</button>
-          <button class="amount-preset" onclick="setAmount(1000)">₹1000</button>
+          <button class="amount-preset" onclick="setAmount(100, this)">₹100</button>
+          <button class="amount-preset" onclick="setAmount(200, this)">₹200</button>
+          <button class="amount-preset" onclick="setAmount(500, this)">₹500</button>
+          <button class="amount-preset" onclick="setAmount(1000, this)">₹1000</button>
         </div>
 
         <div class="qr-section">
@@ -718,6 +719,12 @@ let uploadedFiles = [];
 let processedResults = {};
 let activeDocIndex = null;
 let lightboxIndex = null;
+const DEFAULT_PRICING = {
+  price_per_image: 2,
+  starting_balance: 100,
+  min_topup_amount: 10,
+};
+let pricing = { ...DEFAULT_PRICING };
 
 // ══════════════════════════════════════════
 //  INIT — check session on load
@@ -726,6 +733,7 @@ async function initApp() {
   try {
     const res  = await fetch(`${API_BASE}/me.php`, { credentials: 'include' });
     const data = await res.json();
+    applyPricing(data.pricing);
     if (data.user) {
       currentUser = data.user;
       applyUser();
@@ -756,16 +764,56 @@ function applyUser() {
   updateBalanceUI(currentUser.balance);
 }
 
+function applyPricing(nextPricing) {
+  if (nextPricing && typeof nextPricing === 'object') {
+    const nextPrice = parseFloat(nextPricing.price_per_image);
+    const nextStart = parseFloat(nextPricing.starting_balance);
+    const nextMinTopup = parseFloat(nextPricing.min_topup_amount);
+
+    if (Number.isFinite(nextPrice) && nextPrice >= 0) pricing.price_per_image = nextPrice;
+    if (Number.isFinite(nextStart) && nextStart >= 0) pricing.starting_balance = nextStart;
+    if (Number.isFinite(nextMinTopup) && nextMinTopup >= 1) pricing.min_topup_amount = nextMinTopup;
+  }
+
+  renderPricingUI();
+  if (uploadedFiles.length) renderFileList();
+}
+
+function renderPricingUI() {
+  const perImage = formatCurrency(pricing.price_per_image);
+  const startingBalance = formatCurrency(pricing.starting_balance);
+  const minTopup = formatCurrency(pricing.min_topup_amount);
+
+  const dropMeta = document.getElementById('dropMeta');
+  if (dropMeta) dropMeta.textContent = `Supports: JPG, PNG, PDF · ${perImage} per image`;
+
+  const usagePriceSub = document.getElementById('usagePriceSub');
+  if (usagePriceSub) usagePriceSub.textContent = `${perImage} per image processed`;
+
+  const pricingPerImageValue = document.getElementById('pricingPerImageValue');
+  if (pricingPerImageValue) pricingPerImageValue.textContent = perImage;
+
+  const pricingStartingBalanceValue = document.getElementById('pricingStartingBalanceValue');
+  if (pricingStartingBalanceValue) pricingStartingBalanceValue.textContent = startingBalance;
+
+  const creditAmountInput = document.getElementById('creditAmount');
+  if (creditAmountInput) creditAmountInput.min = String(pricing.min_topup_amount);
+
+  const creditMinHint = document.getElementById('creditMinHint');
+  if (creditMinHint) creditMinHint.textContent = `Minimum top-up: ${minTopup}`;
+}
+
 function updateBalanceUI(balance) {
   const bal = parseFloat(balance) || 0;
-  const fmt = '₹' + bal.toFixed(2);
+  const fmt = formatCurrency(bal);
   ['balanceAmount','balanceAmount2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = fmt;
   });
+  const lowThreshold = Math.max(pricing.min_topup_amount, pricing.price_per_image * 10);
   ['balanceBadge','balanceBadge2'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.classList.toggle('low', bal < 20);
+    if (el) el.classList.toggle('low', bal < lowThreshold);
   });
   const pb = document.getElementById('profileBalance');
   if (pb) pb.textContent = fmt;
@@ -798,6 +846,7 @@ async function doLogin() {
       body: JSON.stringify({ email, password, remember })
     });
     const data = await res.json();
+    applyPricing(data.pricing);
 
     if (!res.ok || data.error) {
       showLoginError(data.error || 'Login failed. Please try again.');
@@ -853,11 +902,14 @@ async function doRegister() {
       body: JSON.stringify({ email, password })
     });
     const data = await res.json();
+    applyPricing(data.pricing);
 
     if (!res.ok || data.error) {
       // If user already exists, guide them to login
       if (data.code === 'USER_EXISTS') {
+        resetRegisterState();
         showToast('Account already exists. Please log in with this email.', 'warning');
+        document.getElementById('registerPassword').value = '';
         goLogin();
         const loginEmail = document.getElementById('loginEmail');
         if (loginEmail) loginEmail.value = email;
@@ -883,6 +935,21 @@ async function doRegister() {
 
   btn.textContent = 'Create account';
   btn.disabled = false;
+}
+
+function resetRegisterState() {
+  const btn = document.getElementById('registerBtn');
+  const errorEl = document.getElementById('registerError');
+
+  if (btn) {
+    btn.textContent = 'Create account';
+    btn.disabled = false;
+  }
+
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.classList.remove('show');
+  }
 }
 
 // ══════════════════════════════════════════
@@ -934,9 +1001,9 @@ function renderFileList() {
   wrap.style.display = 'block'; actions.style.display = 'flex';
   label.textContent = `${uploadedFiles.length} file${uploadedFiles.length > 1 ? 's' : ''} selected`;
 
-  const totalCost = uploadedFiles.length * 2;
+  const totalCost = Number((uploadedFiles.length * pricing.price_per_image).toFixed(2));
   const bal = parseFloat(currentUser?.balance || 0);
-  cost.innerHTML = `Cost: <strong>₹${totalCost}</strong> · Balance: <strong style="color:${bal < totalCost ? 'var(--red)' : 'var(--green)'}">₹${bal.toFixed(2)}</strong>`;
+  cost.innerHTML = `Cost: <strong>${formatCurrency(totalCost)}</strong> · Balance: <strong style="color:${bal < totalCost ? 'var(--red)' : 'var(--green)'}">${formatCurrency(bal)}</strong>`;
 
   cards.innerHTML = '';
   uploadedFiles.forEach((file, i) => {
@@ -970,14 +1037,14 @@ function clearAll() { uploadedFiles = []; renderFileList(); }
 async function startProcessing() {
   if (!uploadedFiles.length) return;
 
-  const cost = uploadedFiles.length * 2;
+  const cost = Number((uploadedFiles.length * pricing.price_per_image).toFixed(2));
   const bal  = parseFloat(currentUser?.balance || 0);
 
   // Balance check
   if (bal < cost) {
-    document.getElementById('insufficientBalance').textContent = '₹' + bal.toFixed(2);
+    document.getElementById('insufficientBalance').textContent = formatCurrency(bal);
     document.getElementById('insufficientCount').textContent   = uploadedFiles.length;
-    document.getElementById('insufficientCost').textContent    = '₹' + cost;
+    document.getElementById('insufficientCost').textContent    = formatCurrency(cost);
     openModal('insufficientModal');
     return;
   }
@@ -1060,6 +1127,7 @@ async function deductCredits(count) {
       body: JSON.stringify({ images: count })
     });
     const data = await res.json();
+    applyPricing(data.pricing);
     if (data.new_balance !== undefined) {
       updateBalanceUI(data.new_balance);
       console.log(`💰 Deducted ₹${data.deducted} — New balance: ₹${data.new_balance}`);
@@ -1282,9 +1350,10 @@ async function loadUsageStats() {
   try {
     const res  = await fetch(`${API_BASE}/stats.php`, { credentials: 'include' });
     const data = await res.json();
+    applyPricing(data.pricing);
     if (data.images !== undefined) {
       document.getElementById('statImages').textContent = data.images;
-      document.getElementById('statSpent').textContent  = '₹' + parseFloat(data.spent || 0).toFixed(2);
+      document.getElementById('statSpent').textContent  = formatCurrency(data.spent || 0);
     }
     if (data.balance !== undefined) updateBalanceUI(data.balance);
   } catch(e) {
@@ -1296,10 +1365,10 @@ async function loadUsageStats() {
 // ══════════════════════════════════════════
 //  ADD CREDIT / PAYMENT
 // ══════════════════════════════════════════
-function setAmount(val) {
+function setAmount(val, btnEl) {
   document.getElementById('creditAmount').value = val;
   document.querySelectorAll('.amount-preset').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (btnEl) btnEl.classList.add('active');
   updateQR();
 }
 
@@ -1328,8 +1397,12 @@ function handleProofFile(input) {
 async function submitPayment() {
   const amount = document.getElementById('creditAmount').value;
   const proof  = document.getElementById('proofInput').files[0];
+  const minTopup = pricing.min_topup_amount;
 
-  if (!amount || parseFloat(amount) < 10) { showToast('Please enter a valid amount (min ₹10)', 'error'); return; }
+  if (!amount || parseFloat(amount) < minTopup) {
+    showToast(`Please enter a valid amount (min ${formatCurrency(minTopup)})`, 'error');
+    return;
+  }
   if (!proof) { showToast('Please upload your payment screenshot', 'warning'); return; }
 
   const btn = document.getElementById('submitPaymentBtn');
@@ -1342,6 +1415,7 @@ async function submitPayment() {
   try {
     const res  = await fetch(`${API_BASE}/add_credit.php`, { method:'POST', credentials:'include', body:formData });
     const data = await res.json();
+    applyPricing(data.pricing);
     if (data.success) {
       document.getElementById('creditSuccess').classList.add('show');
       showToast('Payment submitted! Balance will be credited shortly.', 'success');
@@ -1399,7 +1473,10 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════════════
 function goUpload()  { showPage('upload-page'); }
 function goLogin()   { showPage('login-page'); }
-function goRegister(){ showPage('register-page'); }
+function goRegister(){
+  resetRegisterState();
+  showPage('register-page');
+}
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -1423,6 +1500,12 @@ function showToast(msg, type='') {
 // ══════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════
+function formatCurrency(amount) {
+  const num = parseFloat(amount);
+  const safeNum = Number.isFinite(num) ? num : 0;
+  return '₹' + safeNum.toFixed(2);
+}
+
 function formatSize(b) {
   if (b<1024) return b+' B';
   if (b<1048576) return (b/1024).toFixed(1)+' KB';
@@ -1454,6 +1537,7 @@ function generateDemoData() {
 // ══════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════
+renderPricingUI();
 initApp();
 </script>
 </body>

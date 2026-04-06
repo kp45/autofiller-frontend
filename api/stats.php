@@ -28,4 +28,5 @@ echo json_encode([
     'images'  => (int)$usage['total_images'],
     'spent'   => (float)$usage['total_spent'],
     'balance' => (float)$user['balance'],
+    'pricing' => $appConfig,
 ]);

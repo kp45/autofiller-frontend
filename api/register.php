@@ -54,12 +54,13 @@ $hash = password_hash($password, PASSWORD_BCRYPT);
 
 // Simple default name from email prefix
 $name = explode('@', $email)[0] ?: 'User';
+$startingBalance = (float)($appConfig['starting_balance'] ?? 100);
 
-$stmt = $pdo->prepare('INSERT INTO users (email, password, name) VALUES (?, ?, ?)');
-$stmt->execute([$email, $hash, $name]);
+$stmt = $pdo->prepare('INSERT INTO users (email, password, name, balance) VALUES (?, ?, ?, ?)');
+$stmt->execute([$email, $hash, $name, $startingBalance]);
 
 echo json_encode([
     'success' => true,
     'message' => 'Account created successfully. Please log in with your email and password.',
+    'pricing' => $appConfig,
 ]);
-

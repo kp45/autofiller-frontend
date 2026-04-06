@@ -40,4 +40,12 @@ if (!$user) {
     exit;
 }
 
-echo json_encode(['user' => ['id'=>$user['id'],'name'=>$user['name'],'email'=>$user['email'],'balance'=>(float)$user['balance']]]);
+echo json_encode([
+    'user' => [
+        'id' => $user['id'],
+        'name' => $user['name'],
+        'email' => $user['email'],
+        'balance' => (float)$user['balance'],
+    ],
+    'pricing' => $appConfig,
+]);
