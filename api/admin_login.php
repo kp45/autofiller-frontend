@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 require __DIR__ . '/_cors.php';
 send_cors_headers('POST, OPTIONS');
 
+require __DIR__ . '/_auth.php';
 require __DIR__ . '/../db.php';
 
 $data     = json_decode(file_get_contents('php://input'), true);
@@ -33,7 +34,9 @@ try {
     $stmt->execute([$email]);
     $admin = $stmt->fetch();
 
-    if (!$admin || !password_verify($password, $admin['password'])) {
+    $passwordOk = $admin && verify_password_compat($pdo, 'admins', (int)$admin['id'], $password, (string)$admin['password']);
+
+    if (!$passwordOk) {
         http_response_code(401);
         echo json_encode(['error' => 'Invalid admin email or password.']);
         exit;

@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 require __DIR__ . '/_cors.php';
 send_cors_headers('POST, OPTIONS');
 
+require __DIR__ . '/_auth.php';
 require __DIR__ . '/../db.php';
 
 $data     = json_decode(file_get_contents('php://input'), true);
@@ -21,7 +22,9 @@ $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
-if (!$user || !password_verify($password, $user['password'])) {
+$passwordOk = $user && verify_password_compat($pdo, 'users', (int)$user['id'], $password, (string)$user['password']);
+
+if (!$passwordOk) {
     http_response_code(401);
     echo json_encode(['error' => 'Invalid email or password.']);
     exit;
