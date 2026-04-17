@@ -1,8 +1,8 @@
 <?php
 session_start();
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: http://localhost:8001');
-header('Access-Control-Allow-Credentials: true');
+require __DIR__ . '/_cors.php';
+send_cors_headers('GET, OPTIONS');
 
 require __DIR__ . '/../db.php';
 
